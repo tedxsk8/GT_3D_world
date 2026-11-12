@@ -48,6 +48,7 @@
     <button data-target="events">🏆 比賽</button>
     <button data-target="shop">🛍 商品</button>
     <button data-target="creative">💻 創意教育</button>
+    <button id="exportGlb" style="background:rgba(255,211,106,.22);color:#ffd36a;">📦 匯出 .glb</button>
   </nav>
 </header>
 <aside class="side">
@@ -94,6 +95,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { GLTFExporter } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/GLTFExporter.js';
 
 const mount=document.querySelector('#scene');
 const scene=new THREE.Scene();
@@ -120,7 +122,7 @@ scene.add(new THREE.HemisphereLight(0xdffaff,0x60716c,2.1));
 const sun=new THREE.DirectionalLight(0xffedcf,3.2);
 sun.position.set(-12,24,12); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-30;sun.shadow.camera.right=30;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;scene.add(sun);
 
-// 材質定義（貼近 GTANK 淺色樺木夾板與金屬鐵件）
+// 材質定義
 const mat=(color,roughness=.75,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 const birchFloor=mat(0xdcc3a1,.72);      // 場地木地板
 const birchRamp=mat(0xd3b48c,.65);       // 道具木板主體
@@ -129,6 +131,7 @@ const seamDark=mat(0x524336,.85);        // 板材伸縮縫
 const darkMetal=mat(0x2d353a,.35,.75);   // 扶手與邊緣角鐵
 const steelPlate=mat(0xa8b2b8,.3,.85);   // 斜坡底部銀色金屬過渡鐵板
 const padBlue=mat(0x4a90a4,.6);          // 練習扶手防撞泡棉
+const bumperYellow=mat(0xf2c94c,.5);     // 平台轉角黃色防撞護條
 const white=mat(0xf4f2eb,.6);
 
 const world=new THREE.Group();scene.add(world);
@@ -151,7 +154,7 @@ function cylinder(parent,x,y,z,r1,r2,h,material,segments=24){
   return m;
 }
 
-// 製作斜坡/平台幾何體的輔助函式 (沿 Z 軸擠出，profilePoints 為 [x, y] 陣列)
+// 沿 Z 軸擠出剖面 (points 為 [x, y] 陣列)
 function extrudeProfile(parent, points, width, x, y, z, material){
   const shape = new THREE.Shape();
   shape.moveTo(points[0][0], points[0][1]);
@@ -160,7 +163,7 @@ function extrudeProfile(parent, points, width, x, y, z, material){
   }
   shape.closePath();
   const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false });
-  geo.translate(0, 0, -width/2); // 讓 Z 軸置中
+  geo.translate(0, 0, -width/2);
   const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
@@ -169,21 +172,27 @@ function extrudeProfile(parent, points, width, x, y, z, material){
   return mesh;
 }
 
-// 製作點對點圓管扶手 (自動計算兩點間距離與旋轉角度)
-function createRailTube(parent, p1, p2, radius=0.048, material=darkMetal){
-  const v1 = new THREE.Vector3(...p1);
-  const v2 = new THREE.Vector3(...p2);
-  const dist = v1.distanceTo(v2);
-  const geo = new THREE.CylinderGeometry(radius, radius, dist, 16);
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.position.copy(v1).add(v2).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), v2.clone().sub(v1).normalize());
-  mesh.castShadow = true;
-  parent.add(mesh);
-  return mesh;
+// 建立帶垂直白色支撐腳柱的圓管扶手
+function createRailWithPosts(parent, points, postIndices=[], radius=0.042, railMat=darkMetal, postMat=white){
+  for(let i=0; i<points.length-1; i++){
+    const v1 = new THREE.Vector3(...points[i]);
+    const v2 = new THREE.Vector3(...points[i+1]);
+    const dist = v1.distanceTo(v2);
+    const geo = new THREE.CylinderGeometry(radius, radius, dist, 16);
+    const mesh = new THREE.Mesh(geo, railMat);
+    mesh.position.copy(v1).add(v2).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), v2.clone().sub(v1).normalize());
+    mesh.castShadow = true;
+    parent.add(mesh);
+  }
+  for(const idx of postIndices){
+    const p = points[idx];
+    const postH = 0.40;
+    cylinder(parent, p[0], p[1] - postH/2, p[2], 0.03, 0.03, postH, postMat, 10);
+  }
 }
 
-// 製作 GTANK TSK8 地面/斜坡 Logo 貼圖
+// GTANK TSK8 Logo 貼紙
 function createGtankLogoDecal(w=1.4, h=1.0){
   const c=document.createElement('canvas'); c.width=256; c.height=180;
   const ctx=c.getContext('2d');
@@ -232,7 +241,7 @@ for(let i=0;i<4;i++){const r=new THREE.Mesh(new THREE.TorusGeometry(12+i*5,.025,
 // ============================================================================
 // MAIN SKATEPARK ISLAND — 還原 活力天空 GTANK 滑板場真實配置
 // ============================================================================
-const main=islandBase(world,0,0,10.6,8.0,.45,0x83ad80);
+const main=islandBase(world,0,0,10.8,8.4,.45,0x83ad80);
 main.userData.worldKey='main';
 floaters.push({obj:main,base:0,amp:.08,speed:.7,phase:0});
 
@@ -241,200 +250,331 @@ main.add(park);
 const floorY = 0.76; // 場地木地板表面高度
 
 // 1. 場地基底與樺木地板
-box(park, 0, 0.56, 0, 18.2, 0.28, 13.0, birchSide);
-box(park, 0, 0.72, 0, 17.8, 0.08, 12.6, birchFloor, false);
+box(park, 0, 0.56, 0, 19.2, 0.28, 13.6, birchSide);
+box(park, 0, 0.72, 0, 18.8, 0.08, 13.2, birchFloor, false);
 
 // ----------------------------------------------------------------------------
-// 2. 中央街式大平台 (Central Street Platform / Funbox)
-// 結構：左斜坡 (x: -4.2 ~ -1.8) + 中央平台 (x: -1.8 ~ 1.4) + 右斜坡 (x: 1.4 ~ 3.8)
+// 2. 靠最內側 (-Z 側) 一字型長條組合道具 (Z 軸加寬至 4.8m，前緣 -1.05 對齊右側出發台斜坡接地線)
+// 結構：z 從 -5.85 延伸至 -1.05 (中心 backLineZ = -3.45, 總寬度 backLineW = 4.8)
 // ----------------------------------------------------------------------------
-const platH = 0.72; // 平台高度
-const platW = 4.6;  // 平台總寬度 (z: -2.5 ~ +2.1)
-const platZ = -0.2;
-const rampLen = 2.4;
-const flatLen = 3.2;
+const backLineZ = -3.45;    // 中心 Z 座標 (z: -5.85 ~ -1.05)
+const backLineW = 4.8;      // 依俯視圖標註往 +Z 加寬至 4.8m
+const backLeftEdge = -9.2;  // 恢復靠齊場地最左側 (-X = -9.2)
+const backPlatH = 0.88;     // 中央高平台高度
+const backTopH = 2.05;      // 最左側弧面頂端高度
+const backRailH = 0.40;     // 扶手高度
 
-// 主體雙向斜坡平台 (Bank-to-Bank)
-extrudeProfile(park, [
-  [-flatLen/2 - rampLen, 0],
-  [-flatLen/2, platH],
-  [ flatLen/2, platH],
-  [ flatLen/2 + rampLen, 0]
-], platW, 0, floorY, platZ, birchRamp);
-
-// 板材拼裝伸縮縫線條 (重現照片中標準板寬分割感)
-for(const sz of [-1.35, -0.2, 0.95]){
-  box(park, 0, floorY + platH + 0.005, sz, flatLen, 0.01, 0.03, seamDark, false);
-}
-
-// 兩側斜坡底部的「銀色金屬過渡鐵板 (Entry Plates)」
-box(park, -flatLen/2 - rampLen + 0.14, floorY + 0.012, platZ, 0.32, 0.02, platW + 0.02, steelPlate);
-box(park,  flatLen/2 + rampLen - 0.14, floorY + 0.012, platZ, 0.32, 0.02, platW + 0.02, steelPlate);
-
-// 斜坡上的 GTANK TSK8 Logo 貼紙 (左側與右側斜坡各一張)
-const slopeAngle = Math.atan2(platH, rampLen);
-const logoLeft = createGtankLogoDecal(1.25, 0.9);
-logoLeft.position.set(-flatLen/2 - rampLen*0.52, floorY + platH*0.52 + 0.01, platZ + 0.55);
-logoLeft.rotation.set(-Math.PI/2, 0, 0);
-logoLeft.rotateY(slopeAngle); // 貼合左斜坡傾角
-park.add(logoLeft);
-
-const logoRight = createGtankLogoDecal(1.25, 0.9);
-logoRight.position.set(flatLen/2 + rampLen*0.52, floorY + platH*0.52 + 0.01, platZ + 0.55);
-logoRight.rotation.set(-Math.PI/2, 0, 0);
-logoRight.rotateY(-slopeAngle); // 貼合右斜坡傾角
-park.add(logoRight);
-
-// [中央平台左側配置]：平斜台 (Flat-Down Ledge) + A字型折角扶手 (A-Frame Rail)
-// 平斜台 (位於 z = -2.15 側邊)
-extrudeProfile(park, [
-  [-flatLen/2 - rampLen*0.85, 0],
-  [-flatLen/2, platH + 0.28],
-  [0.2, platH + 0.28],
-  [0.2, 0]
-], 0.65, 0, floorY, platZ - platW/2 + 0.33, birchSide);
-// 平斜台頂部金屬角鐵邊緣
-box(park, -0.7, floorY + platH + 0.285, platZ - platW/2 + 0.02, 1.8, 0.03, 0.05, darkMetal);
-
-// A字型折角圓管扶手 (位於 z = -1.2 處，從左斜坡往上延伸至平台)
-const aRailZ = platZ - 1.05;
-const railOffH = 0.42; // 扶手離地/離台高度
-createRailTube(park, [-flatLen/2 - rampLen*0.75, floorY + platH*0.25 + railOffH, aRailZ], [-flatLen/2, floorY + platH + railOffH, aRailZ]);
-createRailTube(park, [-flatLen/2, floorY + platH + railOffH, aRailZ], [0.2, floorY + platH + railOffH, aRailZ]);
-// 支撐腳柱
-cylinder(park, -flatLen/2 - rampLen*0.65, floorY + platH*0.35 + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
-cylinder(park, -flatLen/2, floorY + platH + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
-cylinder(park, 0.1, floorY + platH + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
-
-// [中央平台右側配置]：下斜台 (Hubba Ledge) + 下斜圓管扶手 (Down Rail) + 階梯
-// 右側下斜台 (Hubba)
-extrudeProfile(park, [
-  [0.4, 0],
-  [0.4, platH + 0.28],
-  [flatLen/2, platH + 0.28],
-  [flatLen/2 + rampLen*0.9, 0.18],
-  [flatLen/2 + rampLen*0.9, 0]
-], 0.68, 0, floorY, platZ + platW/2 - 0.34, birchSide);
-
-// 右側下斜圓管扶手 (Down Rail)
-const downRailZ = platZ + 1.05;
-createRailTube(park, [0.5, floorY + platH + railOffH, downRailZ], [flatLen/2, floorY + platH + railOffH, downRailZ]);
-createRailTube(park, [flatLen/2, floorY + platH + railOffH, downRailZ], [flatLen/2 + rampLen*0.95, floorY + 0.36, downRailZ]);
-cylinder(park, 0.6, floorY + platH + railOffH/2, downRailZ, 0.035, 0.035, railOffH, darkMetal, 10);
-cylinder(park, flatLen/2, floorY + platH + railOffH/2, downRailZ, 0.035, 0.035, railOffH, darkMetal, 10);
-cylinder(park, flatLen/2 + rampLen*0.85, floorY + 0.22, downRailZ, 0.035, 0.035, 0.38, darkMetal, 10);
-
-// 右側後方階梯 (5階)
-for(let s=0; s<5; s++){
-  const stepW = rampLen / 5;
-  const stepH = platH * (5 - s) / 5;
-  box(park, flatLen/2 + stepW*(s + 0.5), floorY + stepH/2, platZ - platW/2 + 0.45, stepW, stepH, 0.9, birchSide);
-}
-
-// ----------------------------------------------------------------------------
-// 3. 後方弧面與大斜坡區 (Rear Quarter Pipes & Center Bank — 照片後方牆面整排)
-// ----------------------------------------------------------------------------
-function buildQuarterPipe(parent, x, z, width, depth, height, deckDepth=0.85){
+// 2A. 最左側弧面與中間斜坡三段式組合 (x: -9.2 ~ -6.2，朝向 +X 中央平台)
+function buildLeftEndQuarter(parent, leftX, centerZ, widthZ, depthX, heightY, deckDepth=0.85){
   const shape = new THREE.Shape();
-  const r = Math.min(depth, height);
+  const r = heightY - backPlatH;
+  
   shape.moveTo(0, 0);
-  shape.lineTo(deckDepth + depth, 0);
-  // 弧面曲線 (從右下往上彎曲至平台)
-  shape.absarc(deckDepth + depth, r, r, -Math.PI/2, Math.PI, true);
-  shape.lineTo(deckDepth, height);
-  shape.lineTo(0, height);
+  shape.lineTo(deckDepth + depthX, 0);
+  shape.lineTo(deckDepth + depthX, backPlatH);
+  
+  if (depthX > r) {
+    shape.lineTo(deckDepth + r, backPlatH);
+  }
+  
+  shape.absarc(deckDepth + r, backPlatH + r, r, -Math.PI / 2, Math.PI, true);
+  shape.lineTo(deckDepth, heightY);
+  shape.lineTo(0, heightY);
   shape.closePath();
 
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false, curveSegments: 20 });
-  geo.rotateY(-Math.PI/2); // 讓弧面朝向 +Z (場地中央)
-  geo.translate(width/2, 0, 0);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: widthZ, bevelEnabled: false, curveSegments: 24 });
+  geo.translate(0, 0, -widthZ/2);
   const mesh = new THREE.Mesh(geo, birchRamp);
-  mesh.position.set(x, floorY, z);
+  mesh.position.set(leftX, floorY, centerZ);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   parent.add(mesh);
 
-  // 頂部金屬 Coping 圓管
-  const coping = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, width, 14), darkMetal);
-  coping.rotation.z = Math.PI/2;
-  coping.position.set(x, floorY + height, z + deckDepth);
+  const coping = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, widthZ, 14), darkMetal);
+  coping.rotation.x = Math.PI/2;
+  coping.position.set(leftX + deckDepth, floorY + heightY, centerZ);
   parent.add(coping);
-
-  // 底部銀色過渡鐵板
-  box(parent, x, floorY + 0.012, z + deckDepth + depth - 0.12, width, 0.02, 0.28, steelPlate);
 }
 
-const rearZ = -5.85;
-// 左側高弧面 (Tall Quarter Pipe)
-buildQuarterPipe(park, -5.6, rearZ, 4.6, 2.2, 2.05, 0.9);
-// 中間大斜坡 (Center Bank Ramp — 夾在兩座弧面之間)
-const midBankShape = new THREE.Shape();
-midBankShape.moveTo(0, 0);
-midBankShape.lineTo(3.1, 0);
-midBankShape.lineTo(0.9, 1.75);
-midBankShape.lineTo(0, 1.75);
-midBankShape.closePath();
-const midBankGeo = new THREE.ExtrudeGeometry(midBankShape, { depth: 3.4, bevelEnabled: false });
-midBankGeo.rotateY(-Math.PI/2);
-midBankGeo.translate(1.7, 0, 0);
-const midBank = new THREE.Mesh(midBankGeo, birchRamp);
-midBank.position.set(-1.5, floorY, rearZ);
-midBank.castShadow = true; midBank.receiveShadow = true;
-park.add(midBank);
-box(park, -1.5, floorY + 0.012, rearZ + 2.98, 3.4, 0.02, 0.28, steelPlate);
+// 內側弧面 (寬 1.65)
+buildLeftEndQuarter(park, backLeftEdge, backLineZ - 1.575, 1.65, 2.15, backTopH, 0.85);
 
-// 右側弧面 (Right Quarter Pipe)
-buildQuarterPipe(park, 3.2, rearZ, 5.8, 2.0, 1.75, 0.9);
+// 中間直斜坡 (寬 1.50，銜接高台頂端至中央平台)
+extrudeProfile(park, [
+  [backLeftEdge, 0],
+  [backLeftEdge, backTopH],
+  [backLeftEdge + 0.85, backTopH],
+  [backLeftEdge + 3.0, backPlatH],
+  [backLeftEdge + 3.0, 0]
+], 1.50, 0, floorY, backLineZ, birchRamp);
+
+// 前側弧面 (寬 1.65)
+buildLeftEndQuarter(park, backLeftEdge, backLineZ + 1.575, 1.65, 2.15, backTopH, 0.85);
+
+// 2B. 中段加寬長平台 (x: -6.2 ~ +1.2，寬 4.8，高度 backPlatH = 0.88)
+extrudeProfile(park, [
+  [-6.2, 0],
+  [-6.2, backPlatH],
+  [ 1.2, backPlatH],
+  [ 1.2, 0]
+], backLineW, 0, floorY, backLineZ, birchRamp);
+
+// 平台板材伸縮縫細節
+for(const sx of [-3.8, -1.3]){
+  box(park, sx, floorY + backPlatH + 0.005, backLineZ, 0.03, 0.01, backLineW, seamDark, false);
+}
+
+// 2C. 最右側三合一落差區 (x: +1.2 ~ +3.6，隨總寬度 4.8m 等比例加寬)
+const rightDropStartX = 1.2;
+const rightDropLen = 2.4;
+const topFlatRailLen = 1.35;
+
+// (1) 靠前側 (+Z 側)：大斜坡 + 置中下斜圓管扶手 (寬 2.05)
+const frontSlopeW = 2.05;
+const frontSlopeZ = backLineZ + backLineW/2 - frontSlopeW/2;
+extrudeProfile(park, [
+  [rightDropStartX, 0],
+  [rightDropStartX, backPlatH],
+  [rightDropStartX + rightDropLen, 0]
+], frontSlopeW, 0, floorY, frontSlopeZ, birchRamp);
+box(park, rightDropStartX + rightDropLen - 0.14, floorY + 0.012, frontSlopeZ, 0.30, 0.02, frontSlopeW, steelPlate);
+
+createRailWithPosts(park, [
+  [rightDropStartX - topFlatRailLen, floorY + backPlatH + backRailH, frontSlopeZ],
+  [rightDropStartX - topFlatRailLen/2, floorY + backPlatH + backRailH, frontSlopeZ],
+  [rightDropStartX, floorY + backPlatH + backRailH, frontSlopeZ],
+  [rightDropStartX + rightDropLen, floorY + backRailH*0.85, frontSlopeZ]
+], [0, 1, 2, 3]);
+
+// (2) 正中央分隔：Flat-Down Hubba 平斜台 (寬 0.65)
+extrudeProfile(park, [
+  [rightDropStartX - 0.75, 0],
+  [rightDropStartX - 0.75, backPlatH + 0.24],
+  [rightDropStartX,        backPlatH + 0.24],
+  [rightDropStartX + rightDropLen, 0.24],
+  [rightDropStartX + rightDropLen, 0]
+], 0.65, 0, floorY, backLineZ, birchSide);
+box(park, rightDropStartX - 0.37, floorY + backPlatH + 0.245, backLineZ, 0.76, 0.025, 0.67, darkMetal);
+
+// (3) 靠內側 (-Z 側)：6階樓梯 + 下斜圓管扶手 (寬 2.10)
+const innerStairW = 2.10;
+const innerStairZ = backLineZ - backLineW/2 + innerStairW/2;
+for(let s=0; s<6; s++){
+  const stepW = rightDropLen / 6;
+  const stepH = backPlatH * (6 - s) / 6;
+  box(park, rightDropStartX + stepW*(s + 0.5), floorY + stepH/2, innerStairZ, stepW + 0.01, stepH, innerStairW, birchSide);
+}
+
+createRailWithPosts(park, [
+  [rightDropStartX - topFlatRailLen, floorY + backPlatH + backRailH, innerStairZ],
+  [rightDropStartX - topFlatRailLen/2, floorY + backPlatH + backRailH, innerStairZ],
+  [rightDropStartX, floorY + backPlatH + backRailH, innerStairZ],
+  [rightDropStartX + rightDropLen, floorY + backRailH*0.85, innerStairZ]
+], [0, 1, 2, 3]);
 
 // ----------------------------------------------------------------------------
-// 4. 前景與側邊道具 (第二張照片：大型助跑斜坡、Manual Pad 平衡台、初學圓管)
+// 3. 中央梯形街式大平台 (緊貼內側高台前緣 z = -1.05，依俯視圖紅虛線框往 +Z 延伸加寬)
 // ----------------------------------------------------------------------------
-// 右前方大型助跑斜坡 (Large Foreground Bank / Roll-in，朝向場地中央)
-const fgBankShape = new THREE.Shape();
-fgBankShape.moveTo(0, 0);
-fgBankShape.lineTo(3.2, 0);
-fgBankShape.lineTo(3.2, 1.55);
-fgBankShape.lineTo(2.4, 1.55);
-fgBankShape.closePath();
-const fgBankGeo = new THREE.ExtrudeGeometry(fgBankShape, { depth: 4.4, bevelEnabled: false });
-fgBankGeo.rotateY(Math.PI/2); // 讓斜坡面朝向 -Z (中央平台)
-fgBankGeo.translate(-2.2, 0, 0);
-const fgBank = new THREE.Mesh(fgBankGeo, birchRamp);
-fgBank.position.set(5.4, floorY, 5.8);
-fgBank.castShadow = true; fgBank.receiveShadow = true;
-park.add(fgBank);
-box(park, 5.4, floorY + 0.012, 2.72, 4.4, 0.02, 0.28, steelPlate);
+const trapW = 3.55;           // 依紅線虛線框加寬 Z 軸深度 (z: -1.05 ~ +2.50)
+const trapZ = (backLineZ + backLineW/2) + trapW/2; // z = +0.725，無縫緊貼內側高台前緣 (-1.05)
+const trapH = 0.64;           // 梯形平台本體高度
+const trapLeftX = -1.2;       // 左斜坡底部起點 X
+const trapFlatStartX = 0.5;   // 左斜坡頂部 / 平台起點 X
+const trapFlatEndX = 1.9;     // 平台終點 / 右斜坡起點 X
+const trapRightX = 3.6;       // 右斜坡底部終點 X
+const trapRailH = 0.38;       // 圓管扶手立柱高度
 
-// 中前方長型平衡台 (Manual Pad / Box)
-box(park, 1.4, floorY + 0.16, 3.4, 4.2, 0.32, 1.05, birchRamp);
-box(park, 1.4, floorY + 0.325, 3.4 + 0.51, 4.22, 0.03, 0.05, darkMetal);
-box(park, 1.4, floorY + 0.325, 3.4 - 0.51, 4.22, 0.03, 0.05, darkMetal);
+// 3A. 梯形主體
+extrudeProfile(park, [
+  [trapLeftX, 0],
+  [trapFlatStartX, trapH],
+  [trapFlatEndX, trapH],
+  [trapRightX, 0]
+], trapW, 0, floorY, trapZ, birchRamp);
 
-// 左側初學練習低矮圓管 (Practice Flat Bar，附藍色防撞泡棉)
-const practiceBarX = -6.6;
-const practiceBarZ = 2.6;
-cylinder(park, practiceBarX, floorY + 0.32, practiceBarZ, 0.04, 0.04, 3.2, steelPlate, 12);
-// 藍色泡棉套管
-cylinder(park, practiceBarX, floorY + 0.32, practiceBarZ + 0.3, 0.075, 0.075, 1.1, padBlue, 14);
-// 底座支撐腳
-box(park, practiceBarX, floorY + 0.16, practiceBarZ - 1.4, 0.45, 0.32, 0.06, white);
-box(park, practiceBarX, floorY + 0.16, practiceBarZ + 1.4, 0.45, 0.32, 0.06, white);
+box(park, trapFlatStartX, floorY + trapH + 0.005, trapZ, 0.03, 0.01, trapW, seamDark, false);
+box(park, trapFlatEndX,   floorY + trapH + 0.005, trapZ, 0.03, 0.01, trapW, seamDark, false);
+box(park, trapLeftX + 0.14,  floorY + 0.012, trapZ, 0.30, 0.02, trapW, steelPlate);
+box(park, trapRightX - 0.14, floorY + 0.012, trapZ, 0.30, 0.02, trapW, steelPlate);
+
+// 3B. 最內側：Flat-Down Hubba 平斜台 (緊貼內側高台，頂部與後方高台齊平)
+const hubbaW = 0.60;
+const hubbaZ = trapZ - trapW/2 + hubbaW/2;
+extrudeProfile(park, [
+  [trapLeftX + 0.25, 0],
+  [trapFlatStartX,   backPlatH],
+  [trapFlatEndX,     backPlatH],
+  [trapRightX - 0.15, 0.24],
+  [trapRightX - 0.15, 0]
+], hubbaW, 0, floorY, hubbaZ, birchSide);
+
+box(park, (trapFlatStartX + trapFlatEndX)/2, floorY + backPlatH + 0.012, hubbaZ, trapFlatEndX - trapFlatStartX, 0.025, hubbaW + 0.02, darkMetal);
+box(park, trapRightX - 0.16, floorY + 0.12, hubbaZ + hubbaW/2 - 0.02, 0.05, 0.24, 0.05, bumperYellow);
+
+// 3C. 正中間：斜接平圓管扶手 (Up-Flat Rail)
+const centerRailZ = trapZ + 0.15;
+createRailWithPosts(park, [
+  [trapLeftX + 0.25, floorY + trapH*0.15 + trapRailH, centerRailZ],
+  [trapFlatStartX,   floorY + trapH + trapRailH,      centerRailZ],
+  [trapFlatEndX,     floorY + trapH + trapRailH,      centerRailZ]
+], [0, 1, 2]);
+
+// 3D. 中央梯形平台左側：全場最高弧面出發台 (Tallest Quarter Pipe Launch Ramp)
+// 位置：背靠最左側邊緣 (-9.2)，緊貼後方雙弧面出發台前緣 (-1.05)，與中央梯形平台同寬 (trapW = 3.55)
+const tallestH = 2.45;       // 全場最高高度 (高於後方弧面的 2.05)
+const tallestDepth = 2.45;   // 弧面水平半徑深度
+const tallestDeck = 0.85;    // 頂部站立平台深度
+const tallestLeftX = backLeftEdge; // -9.2，與後方出發台左側背靠背切齊
+
+const tallShape = new THREE.Shape();
+tallShape.moveTo(0, 0);
+tallShape.lineTo(tallestDeck + tallestDepth, 0);
+// 圓弧從地面 (tallestDeck + tallestDepth, 0) 順時針向上內縮彎曲至 Coping (tallestDeck, tallestH)
+tallShape.absarc(tallestDeck + tallestDepth, tallestH, tallestDepth, -Math.PI / 2, Math.PI, true);
+tallShape.lineTo(tallestDeck, tallestH);
+tallShape.lineTo(0, tallestH);
+tallShape.closePath();
+
+const tallGeo = new THREE.ExtrudeGeometry(tallShape, { depth: trapW, bevelEnabled: false, curveSegments: 24 });
+tallGeo.translate(0, 0, -trapW / 2);
+const tallQuarterMesh = new THREE.Mesh(tallGeo, birchRamp);
+tallQuarterMesh.position.set(tallestLeftX, floorY, trapZ);
+tallQuarterMesh.castShadow = true;
+tallQuarterMesh.receiveShadow = true;
+park.add(tallQuarterMesh);
+
+// 頂部 Coping 圓管
+const tallCoping = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, trapW, 14), darkMetal);
+tallCoping.rotation.x = Math.PI / 2;
+tallCoping.position.set(tallestLeftX + tallestDeck, floorY + tallestH, trapZ);
+park.add(tallCoping);
+
+// 底部銀色金屬過渡鐵板
+box(park, tallestLeftX + tallestDeck + tallestDepth - 0.14, floorY + 0.012, trapZ, 0.30, 0.02, trapW, steelPlate);
+
+cylinder(park, trapLeftX + 0.25, floorY + 0.22, centerRailZ, 0.065, 0.065, 0.36, padBlue, 12);
+cylinder(park, trapFlatStartX,   floorY + trapH + 0.18, centerRailZ, 0.06, 0.06, 0.30, bumperYellow, 12);
+cylinder(park, trapFlatEndX,     floorY + trapH + 0.18, centerRailZ, 0.06, 0.06, 0.30, bumperYellow, 12);
+// ----------------------------------------------------------------------------
+// 4. 右側弧面與大斜坡區 (位於場地右側 +X，弧面與斜坡朝向左側 -X 中央平台)
+// 兩側弧面等高 (2.05) 且後方平台連成一體；中間大斜坡維持較低高度 (1.75) 保留落差
+// ----------------------------------------------------------------------------
+function buildRightQuarterPipe(parent, rightEdgeX, centerZ, lengthZ, depthX, heightY, deckDepth=0.85){
+  const shape = new THREE.Shape();
+  const r = Math.min(depthX, heightY);
+  shape.moveTo(0, 0);
+  shape.lineTo(depthX + deckDepth, 0);
+  shape.lineTo(depthX + deckDepth, heightY);
+  shape.lineTo(depthX, heightY);
+  shape.absarc(0, r, r, 0, -Math.PI/2, true);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: lengthZ, bevelEnabled: false, curveSegments: 22 });
+  geo.translate(0, 0, -lengthZ/2);
+
+  const startX = rightEdgeX - (depthX + deckDepth);
+  const mesh = new THREE.Mesh(geo, birchRamp);
+  mesh.position.set(startX, floorY, centerZ);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+
+  const coping = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, lengthZ, 14), darkMetal);
+  coping.rotation.x = Math.PI/2;
+  coping.position.set(startX + depthX, floorY + heightY, centerZ);
+  parent.add(coping);
+
+  box(parent, startX + 0.12, floorY + 0.012, centerZ, 0.28, 0.02, lengthZ, steelPlate);
+}
+
+const rightWallX = 9.2;
+const rightHighH = 2.05;     // 兩側弧面統一高度
+const rightDeckDepth = 0.85; // 頂部出發平台深度
+
+// 1) 右後方高弧面 (z: -6.0 ~ -1.8，高度 2.05)
+buildRightQuarterPipe(park, rightWallX, -3.9, 4.2, 2.1, rightHighH, rightDeckDepth);
+
+// 2) 右側中間大斜坡 (z: -1.8 ~ +1.4，高度維持較低的 1.75，保留與後方高平台的落差！)
+const midBankDepth = 2.8;
+const midBankHeight = 1.75;
+const midBankLenZ = 3.2;
+const midBankCenterZ = -0.2;
+const midBankStartX = rightWallX - (midBankDepth + rightDeckDepth);
+
+extrudeProfile(park, [
+  [midBankStartX, 0],
+  [midBankStartX + midBankDepth, midBankHeight],
+  [rightWallX, midBankHeight],
+  [rightWallX, 0]
+], midBankLenZ, 0, floorY, midBankCenterZ, birchRamp);
+box(park, midBankStartX + 0.12, floorY + 0.012, midBankCenterZ, 0.28, 0.02, midBankLenZ, steelPlate);
+
+// 補齊中間斜坡後方的「連通高平台」，讓左、右兩座弧面的頂部出發平台連成一整條平坦長台！
+box(park, rightWallX - rightDeckDepth/2, floorY + rightHighH/2, midBankCenterZ, rightDeckDepth, rightHighH, midBankLenZ, birchRamp);
+
+// 3) 右前方弧面 (z: +1.4 ~ +6.0，高度拉高至與後方弧面一樣的 2.05，深度對齊 2.1)
+buildRightQuarterPipe(park, rightWallX, 3.7, 4.6, 2.1, rightHighH, rightDeckDepth);
 
 // ----------------------------------------------------------------------------
-// 5. 場館背景牆與互動熱點 (GTANK Logo Wall & Hotspots)
+// 5. 前景道具 (Manual Pad 平衡台、初學練習圓管) + 互動熱點
 // ----------------------------------------------------------------------------
-box(park, -0.5, floorY + 2.35, -6.05, 15.6, 1.4, 0.22, birchSide);
-const logo=labelSprite('GTANK  /  SKATEPARK','#ffffff');
-logo.scale.set(5.4, 1.35, 1);
-logo.position.set(-1.5, floorY + 2.8, -5.8);
+box(park, -0.2, floorY + 0.16, 3.9, 4.4, 0.32, 1.05, birchRamp);
+box(park, -0.2, floorY + 0.325, 3.9 + 0.51, 4.42, 0.03, 0.05, darkMetal);
+box(park, -0.2, floorY + 0.325, 3.9 - 0.51, 4.42, 0.03, 0.05, darkMetal);
+
+
+// GTANK 招牌懸浮於內側長條高台上方
+//const logo=labelSprite('GTANK  /  SKATEPARK','#ffffff');
+//logo.scale.set(4.2, 1.05, 1);
+//logo.position.set(-2.5, floorY + 5.45, -5.85);
+//park.add(logo);
+// GTANK 招牌懸浮於內側長條高台上方（載入自訂 Logo 圖片並自動去背加圓角框）
+function createCustomLogoSprite(imgUrl) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+
+  const img = new Image();
+  img.onload = () => {
+    // 1. 畫出圓角白底看板（讓黑色 TSK8 與灰色立體陰影清晰呈現）
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(16, 16, 480, 480, 64);
+    ctx.fill();
+
+    // 2. 加上品牌金色外框，與場景熱點風格統一
+    ctx.strokeStyle = '#ffd36a';
+    ctx.lineWidth = 12;
+    ctx.stroke();
+
+    // 3. 將上傳的 Logo 置中繪製進看板內
+    ctx.drawImage(img, 56, 56, 400, 400);
+    tex.needsUpdate = true;
+  };
+  img.src = imgUrl;
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })
+  );
+  // 因為圖片是正方形比例，scale 設為 1:1（例如 2.6 x 2.6）才不會變形
+  sprite.scale.set(2.6, 2.6, 1);
+  return sprite;
+}
+
+const logo = createCustomLogoSprite('./gtank_logo.png');
+logo.position.set(-2.5, floorY + 4.8, -6.85);
 park.add(logo);
 
-addHotspot(park, -5.8, floorY + 2.6, -3.8, '弧面與基礎滑行', 'RAMP ZONE', '練習 Pump 加速、Kickturn 轉向與 Drop-in 下板技巧。', 0x42d5ff);
-addHotspot(park, 0, floorY + 1.6, -0.2, '中央街式大平台', 'STREET FUNBOX', '結合雙向斜坡、A字扶手、下斜圓管與階梯的多功能核心區。', 0xffd36a);
-addHotspot(park, -6.6, floorY + 1.1, 2.6, '初學安全練習區', 'BEGINNER AREA', '配備防撞泡棉練習管與平緩地面，適合零基礎學員建立平衡感。', 0x7ef0a6);
+addHotspot(park, 6.8, floorY + 2.5, -1.8, '弧面與大斜坡區', 'RAMP ZONE', '練習 Pump 加速、Kickturn 轉向與 Drop-in 下板技巧。', 0x42d5ff);
+addHotspot(park, -2.5, floorY + 1.65, -4.25, '內側高台與雙扶手區', 'BACK LINE PLAZA', '結合左側弧面斜坡、長助跑平台與右側階梯/Hubba/雙扶手的經典路線。', 0xff9f43);
+addHotspot(park, -0.2, floorY + 1.65, -1.0, '中央多段式街式大平台', 'STREET PLAZA', '結合階梯、高台連續斜管、Hubba 斜台與 A字扶手的核心練習區。', 0xffd36a);
+//addHotspot(park, -6.8, floorY + 1.1, 3.2, '練習區', 'BEGINNER AREA', '配備防撞泡棉練習管與平緩地面，適合零基礎學員建立平衡感。', 0x7ef0a6);
 
 // ============================================================================
-// 周邊衛星島嶼 (HEART 政策島概念導覽據點)
+// 周邊衛星島嶼
 // ============================================================================
 function makeBuildingIsland(key,x,z,color,title,tag,desc,type){
  const g=islandBase(world,x,z,3.25,2.75,.35,color);g.userData.worldKey=key;floaters.push({obj:g,base:0,amp:.14,speed:.9,phase:x*.3});
@@ -474,7 +614,7 @@ makeBuildingIsland('news',0,-17,0x91b18a,'最新消息','NEWS','掌握課程公�
 
 // 裝飾樹木與雲朵
 function tree(parent,x,z,s=1){const trunk=cylinder(parent,x,.95,z,.12,.16,1.1,mat(0x806449),8);const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.75*s,1),mat(0x4f946b));crown.position.set(x,1.85*s,z);crown.castShadow=true;parent.add(crown)}
-for(const [x,z] of [[-8.6,-5.6],[8.6,-5.6],[-8.6,5.6],[8.6,5.6]])tree(main,x,z,.75);
+for(const [x,z] of [[-9.2,-6.1],[9.2,-6.1],[-9.2,5.6],[9.2,5.6]])tree(main,x,z,.75);
 for(let i=0;i<30;i++){const a=i/30*Math.PI*2;const cloud=new THREE.Mesh(new THREE.IcosahedronGeometry(.35+Math.random()*.45,1),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.62}));cloud.position.set(Math.cos(a)*30,8+Math.sin(i*2)*2,Math.sin(a)*25);scene.add(cloud);floaters.push({obj:cloud,base:cloud.position.y,amp:.18,speed:.3,phase:i})}
 
 // 點擊互動與相機平滑轉場
@@ -517,9 +657,32 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     }
   }
 });
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>focus(b.dataset.target)));
+document.querySelectorAll('nav button[data-target]').forEach(b=>b.addEventListener('click',()=>focus(b.dataset.target)));
 document.querySelector('#close').onclick=()=>info.classList.remove('show');
 document.querySelector('#infoAction').onclick=()=>{info.classList.remove('show');};
+
+// 匯出 .glb 模型功能
+document.querySelector('#exportGlb').addEventListener('click', () => {
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    park,
+    (result) => {
+      const blob = new Blob([result], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gtank_skatepark.glb';
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    (error) => {
+      console.error('GLB 匯出失敗：', error);
+      alert('匯出失敗，請開啟開發者工具查看錯誤訊息。');
+    },
+    { binary: true }
+  );
+});
+
 const clock=new THREE.Clock();
 function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime();for(const f of floaters){f.obj.position.y=f.base+Math.sin(t*f.speed+f.phase)*f.amp}controls.update();renderer.render(scene,camera)}
 animate();
