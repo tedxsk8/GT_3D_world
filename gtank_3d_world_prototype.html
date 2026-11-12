@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GTANK 3D World — Prototype</title>
+<style>
+  :root { --ink:#17232b; --glass:rgba(12,22,29,.78); --line:rgba(255,255,255,.2); --gold:#ffd36a; }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8dcbd4;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#fff}
+  #scene{position:fixed;inset:0}
+  canvas{display:block}
+  .topbar{position:fixed;z-index:5;left:22px;right:22px;top:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none}
+  .brand{pointer-events:auto;font-weight:900;letter-spacing:.08em;font-size:25px;line-height:1;text-shadow:0 2px 12px #142b35}
+  .brand small{display:block;font-size:10px;letter-spacing:.28em;margin-top:5px;color:#ffe29b}
+  nav{pointer-events:auto;display:flex;gap:7px;padding:7px;border:1px solid var(--line);border-radius:16px;background:var(--glass);backdrop-filter:blur(12px)}
+  nav button,.control{border:0;color:#fff;background:transparent;padding:10px 13px;border-radius:10px;font-weight:700;cursor:pointer}
+  nav button:hover,.control:hover{background:rgba(255,255,255,.15)}
+  .hint{position:fixed;left:22px;bottom:20px;z-index:4;padding:12px 15px;background:var(--glass);border:1px solid var(--line);border-radius:13px;font-size:12px;line-height:1.7;backdrop-filter:blur(10px)}
+  .hint b{color:var(--gold)}
+  .side{position:fixed;right:22px;top:105px;z-index:4;width:230px;padding:16px;background:var(--glass);border:1px solid var(--line);border-radius:17px;backdrop-filter:blur(12px)}
+  .side h3{margin:0 0 9px;font-size:14px;letter-spacing:.12em;color:var(--gold)}
+  .side p{font-size:12px;line-height:1.65;color:#d9e5e8;margin:0}
+  .side .status{display:inline-block;margin-top:12px;padding:5px 9px;border-radius:20px;background:rgba(255,211,106,.16);color:#ffe29b;font-size:11px}
+  .info{position:fixed;z-index:6;left:50%;bottom:22px;transform:translate(-50%,20px);width:min(460px,calc(100% - 32px));padding:17px 19px;background:rgba(10,20,27,.9);border:1px solid rgba(255,255,255,.25);border-radius:18px;backdrop-filter:blur(15px);opacity:0;pointer-events:none;transition:.3s}
+  .info.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  .info .eyebrow{font-size:10px;letter-spacing:.2em;color:var(--gold);font-weight:800}
+  .info h2{margin:5px 0 5px;font-size:21px}
+  .info p{margin:0;color:#d9e5e8;font-size:13px;line-height:1.6}
+  .info button{margin-top:12px;border:0;background:var(--gold);color:#17232b;padding:8px 13px;border-radius:9px;font-weight:800;cursor:pointer}
+  .close{position:absolute;right:13px;top:12px;background:transparent!important;color:#fff!important;padding:4px 8px!important}
+  .footer{position:fixed;right:22px;bottom:20px;z-index:4;color:rgba(255,255,255,.8);font-size:10px;letter-spacing:.12em;text-shadow:0 1px 4px #234}
+  #loading{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:#18343d;color:#fff;transition:opacity .5s}
+  #loading.hide{opacity:0;pointer-events:none}
+  #loading div{text-align:center;letter-spacing:.18em;font-weight:800}
+  #loading small{display:block;margin-top:10px;letter-spacing:.05em;font-weight:400;color:#b8d5d9}
+  @media(max-width:760px){.topbar{left:12px;right:12px;top:12px;align-items:flex-start}.brand{font-size:19px}nav{max-width:70vw;overflow:auto}nav button{white-space:nowrap;padding:8px;font-size:11px}.side{top:auto;bottom:92px;right:12px;width:185px;padding:12px}.hint{left:12px;bottom:12px;max-width:calc(100% - 220px);font-size:10px}.footer{display:none}}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div id="loading"><div>GTANK 3D WORLD<small>正在載入 3D 場景，請稍候…</small></div></div>
+<header class="topbar">
+  <div class="brand">GTANK<small>SKATE · PLAY · CREATE</small></div>
+  <nav>
+    <button data-target="main">🛹 滑板場</button>
+    <button data-target="school">🏫 課程</button>
+    <button data-target="events">🏆 比賽</button>
+    <button data-target="shop">🛍 商品</button>
+    <button data-target="creative">💻 創意教育</button>
+  </nav>
+</header>
+<aside class="side">
+  <h3>EXPLORE THE WORLD</h3>
+  <p>以中央 GTANK 滑板場為核心，探索周圍的服務據點。拖曳旋轉、滾輪縮放，點擊島嶼查看介紹。</p>
+  <span class="status">● 3D INTERACTIVE PROTOTYPE</span>
+</aside>
+<div class="hint"><b>操作方式</b><br>滑鼠拖曳：旋轉世界 ｜ 滾輪：縮放<br>點擊場景中的島嶼：查看內容</div>
+<div class="footer">GTANK DIGITAL EXPERIENCE / CONCEPT 01</div>
+<section class="info" id="info">
+  <button class="close" id="close">✕</button>
+  <div class="eyebrow" id="infoTag">DISCOVER GTANK</div>
+  <h2 id="infoTitle">GTANK Skatepark</h2>
+  <p id="infoText">探索 GTANK 的滑板世界。</p>
+  <button id="infoAction">探索這個區域 ↗</button>
+</section>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script>
+  window.addEventListener('error', (event) => {
+    const loading = document.querySelector('#loading');
+    if (loading) {
+      loading.classList.remove('hide');
+      loading.innerHTML = '<div>3D 場景載入失敗<small>' +
+        (event.message || '請確認網路連線，並使用 VS Code Live Server 開啟。') +
+        '</small></div>';
+    }
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const loading = document.querySelector('#loading');
+    if (loading) {
+      loading.classList.remove('hide');
+      loading.innerHTML = '<div>3D 模組載入失敗<small>' +
+        String(event.reason || '請確認網路連線，並使用 VS Code Live Server 開啟。') +
+        '</small></div>';
+    }
+  });
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const mount=document.querySelector('#scene');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91cbd2);
+scene.fog=new THREE.Fog(0x91cbd2,35,85);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,200);
+camera.position.set(16,17,22);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+mount.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=.06;
+controls.minDistance=10; controls.maxDistance=48;
+controls.maxPolarAngle=Math.PI*.48;
+controls.target.set(0,1.2,0);
+
+scene.add(new THREE.HemisphereLight(0xdffaff,0x60716c,2.1));
+const sun=new THREE.DirectionalLight(0xffedcf,3.2);
+sun.position.set(-12,24,12); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-30;sun.shadow.camera.right=30;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;scene.add(sun);
+
+// 材質定義（貼近 GTANK 淺色樺木夾板與金屬鐵件）
+const mat=(color,roughness=.75,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+const birchFloor=mat(0xdcc3a1,.72);      // 場地木地板
+const birchRamp=mat(0xd3b48c,.65);       // 道具木板主體
+const birchSide=mat(0xbe9b6e,.78);       // 道具側板/深色木紋
+const seamDark=mat(0x524336,.85);        // 板材伸縮縫
+const darkMetal=mat(0x2d353a,.35,.75);   // 扶手與邊緣角鐵
+const steelPlate=mat(0xa8b2b8,.3,.85);   // 斜坡底部銀色金屬過渡鐵板
+const padBlue=mat(0x4a90a4,.6);          // 練習扶手防撞泡棉
+const white=mat(0xf4f2eb,.6);
+
+const world=new THREE.Group();scene.add(world);
+const pickables=[]; const floaters=[];
+
+function box(parent,x,y,z,sx,sy,sz,material,cast=true){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material);
+  m.position.set(x,y,z);
+  m.castShadow=cast;
+  m.receiveShadow=true;
+  parent.add(m);
+  return m;
+}
+function cylinder(parent,x,y,z,r1,r2,h,material,segments=24){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,segments),material);
+  m.position.set(x,y,z);
+  m.castShadow=true;
+  m.receiveShadow=true;
+  parent.add(m);
+  return m;
+}
+
+// 製作斜坡/平台幾何體的輔助函式 (沿 Z 軸擠出，profilePoints 為 [x, y] 陣列)
+function extrudeProfile(parent, points, width, x, y, z, material){
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for(let i=1; i<points.length; i++){
+    shape.lineTo(points[i][0], points[i][1]);
+  }
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false });
+  geo.translate(0, 0, -width/2); // 讓 Z 軸置中
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+// 製作點對點圓管扶手 (自動計算兩點間距離與旋轉角度)
+function createRailTube(parent, p1, p2, radius=0.048, material=darkMetal){
+  const v1 = new THREE.Vector3(...p1);
+  const v2 = new THREE.Vector3(...p2);
+  const dist = v1.distanceTo(v2);
+  const geo = new THREE.CylinderGeometry(radius, radius, dist, 16);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.copy(v1).add(v2).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), v2.clone().sub(v1).normalize());
+  mesh.castShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+// 製作 GTANK TSK8 地面/斜坡 Logo 貼圖
+function createGtankLogoDecal(w=1.4, h=1.0){
+  const c=document.createElement('canvas'); c.width=256; c.height=180;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(255,255,255,0.88)';
+  ctx.fillRect(10,10,236,160);
+  ctx.strokeStyle='#222'; ctx.lineWidth=6; ctx.strokeRect(14,14,228,152);
+  ctx.fillStyle='#1c2428'; ctx.font='900 32px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('GTANK', 128, 62);
+  ctx.font='900 58px sans-serif';
+  ctx.fillText('TSK8', 128, 128);
+  const tex=new THREE.CanvasTexture(c);
+  const geo=new THREE.PlaneGeometry(w,h);
+  const matDecal=new THREE.MeshBasicMaterial({map:tex, transparent:true, polygonOffset:true, polygonOffsetFactor:-1});
+  return new THREE.Mesh(geo, matDecal);
+}
+
+function islandBase(parent,x,z,rx,rz,topY=0.4,color=0x7da77c){
+ const g=new THREE.Group();g.position.set(x,0,z);parent.add(g);
+ const top=new THREE.Mesh(new THREE.CylinderGeometry(rx,rx*.88,.65,64),mat(color));top.position.y=topY-.15;top.castShadow=true;top.receiveShadow=true;g.add(top);
+ const rock=new THREE.Mesh(new THREE.CylinderGeometry(rx*.88,rx*.65,1.45,10),mat(0x667d78));rock.position.y=topY-1.1;rock.castShadow=true;g.add(rock);
+ for(let i=0;i<9;i++){const a=i/9*Math.PI*2;const b=new THREE.Mesh(new THREE.ConeGeometry(.48,.9,5),mat(i%2?0x637a76:0x718b80));b.position.set(Math.cos(a)*rx*.58,topY-1.65,Math.sin(a)*rz*.58);b.rotation.z=Math.PI;g.add(b)}
+ return g;
+}
+
+function labelSprite(text,color='#ffffff'){
+ const c=document.createElement('canvas');c.width=512;c.height=128;const ctx=c.getContext('2d');
+ ctx.fillStyle='rgba(13,27,32,.82)';ctx.beginPath();ctx.roundRect(8,8,496,112,26);ctx.fill();
+ ctx.strokeStyle=color;ctx.lineWidth=5;ctx.stroke();
+ ctx.font='bold 42px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText(text,256,65);
+ const tex=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));s.scale.set(4.4,1.1,1);return s;
+}
+
+function addHotspot(group,x,y,z,title,tag,desc,color=0xffd36a){
+ const orb=new THREE.Mesh(new THREE.SphereGeometry(.28,20,20),new THREE.MeshBasicMaterial({color}));orb.position.set(x,y,z);group.add(orb);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.045,8,40),new THREE.MeshBasicMaterial({color}));ring.rotation.x=Math.PI/2;ring.position.set(x,y-.16,z);group.add(ring);
+ const spr=labelSprite(title,'#'+new THREE.Color(color).getHexString());spr.position.set(x,y+1.05,z);group.add(spr);
+ orb.userData={title,tag,desc};pickables.push(orb);pickables.push(spr);
+ return orb;
+}
+
+// 海洋與波紋
+const ocean=new THREE.Mesh(new THREE.CircleGeometry(42,96),new THREE.MeshStandardMaterial({color:0x4aabb8,roughness:.42,metalness:.12}));
+ocean.rotation.x=-Math.PI/2;ocean.position.y=-2.6;ocean.receiveShadow=true;scene.add(ocean);
+for(let i=0;i<4;i++){const r=new THREE.Mesh(new THREE.TorusGeometry(12+i*5,.025,6,160),new THREE.MeshBasicMaterial({color:0xa4edf0,transparent:true,opacity:.22}));r.rotation.x=Math.PI/2;r.position.y=-2.45+i*.015;scene.add(r);}
+
+// ============================================================================
+// MAIN SKATEPARK ISLAND — 還原 活力天空 GTANK 滑板場真實配置
+// ============================================================================
+const main=islandBase(world,0,0,10.6,8.0,.45,0x83ad80);
+main.userData.worldKey='main';
+floaters.push({obj:main,base:0,amp:.08,speed:.7,phase:0});
+
+const park=new THREE.Group();
+main.add(park);
+const floorY = 0.76; // 場地木地板表面高度
+
+// 1. 場地基底與樺木地板
+box(park, 0, 0.56, 0, 18.2, 0.28, 13.0, birchSide);
+box(park, 0, 0.72, 0, 17.8, 0.08, 12.6, birchFloor, false);
+
+// ----------------------------------------------------------------------------
+// 2. 中央街式大平台 (Central Street Platform / Funbox)
+// 結構：左斜坡 (x: -4.2 ~ -1.8) + 中央平台 (x: -1.8 ~ 1.4) + 右斜坡 (x: 1.4 ~ 3.8)
+// ----------------------------------------------------------------------------
+const platH = 0.72; // 平台高度
+const platW = 4.6;  // 平台總寬度 (z: -2.5 ~ +2.1)
+const platZ = -0.2;
+const rampLen = 2.4;
+const flatLen = 3.2;
+
+// 主體雙向斜坡平台 (Bank-to-Bank)
+extrudeProfile(park, [
+  [-flatLen/2 - rampLen, 0],
+  [-flatLen/2, platH],
+  [ flatLen/2, platH],
+  [ flatLen/2 + rampLen, 0]
+], platW, 0, floorY, platZ, birchRamp);
+
+// 板材拼裝伸縮縫線條 (重現照片中標準板寬分割感)
+for(const sz of [-1.35, -0.2, 0.95]){
+  box(park, 0, floorY + platH + 0.005, sz, flatLen, 0.01, 0.03, seamDark, false);
+}
+
+// 兩側斜坡底部的「銀色金屬過渡鐵板 (Entry Plates)」
+box(park, -flatLen/2 - rampLen + 0.14, floorY + 0.012, platZ, 0.32, 0.02, platW + 0.02, steelPlate);
+box(park,  flatLen/2 + rampLen - 0.14, floorY + 0.012, platZ, 0.32, 0.02, platW + 0.02, steelPlate);
+
+// 斜坡上的 GTANK TSK8 Logo 貼紙 (左側與右側斜坡各一張)
+const slopeAngle = Math.atan2(platH, rampLen);
+const logoLeft = createGtankLogoDecal(1.25, 0.9);
+logoLeft.position.set(-flatLen/2 - rampLen*0.52, floorY + platH*0.52 + 0.01, platZ + 0.55);
+logoLeft.rotation.set(-Math.PI/2, 0, 0);
+logoLeft.rotateY(slopeAngle); // 貼合左斜坡傾角
+park.add(logoLeft);
+
+const logoRight = createGtankLogoDecal(1.25, 0.9);
+logoRight.position.set(flatLen/2 + rampLen*0.52, floorY + platH*0.52 + 0.01, platZ + 0.55);
+logoRight.rotation.set(-Math.PI/2, 0, 0);
+logoRight.rotateY(-slopeAngle); // 貼合右斜坡傾角
+park.add(logoRight);
+
+// [中央平台左側配置]：平斜台 (Flat-Down Ledge) + A字型折角扶手 (A-Frame Rail)
+// 平斜台 (位於 z = -2.15 側邊)
+extrudeProfile(park, [
+  [-flatLen/2 - rampLen*0.85, 0],
+  [-flatLen/2, platH + 0.28],
+  [0.2, platH + 0.28],
+  [0.2, 0]
+], 0.65, 0, floorY, platZ - platW/2 + 0.33, birchSide);
+// 平斜台頂部金屬角鐵邊緣
+box(park, -0.7, floorY + platH + 0.285, platZ - platW/2 + 0.02, 1.8, 0.03, 0.05, darkMetal);
+
+// A字型折角圓管扶手 (位於 z = -1.2 處，從左斜坡往上延伸至平台)
+const aRailZ = platZ - 1.05;
+const railOffH = 0.42; // 扶手離地/離台高度
+createRailTube(park, [-flatLen/2 - rampLen*0.75, floorY + platH*0.25 + railOffH, aRailZ], [-flatLen/2, floorY + platH + railOffH, aRailZ]);
+createRailTube(park, [-flatLen/2, floorY + platH + railOffH, aRailZ], [0.2, floorY + platH + railOffH, aRailZ]);
+// 支撐腳柱
+cylinder(park, -flatLen/2 - rampLen*0.65, floorY + platH*0.35 + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
+cylinder(park, -flatLen/2, floorY + platH + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
+cylinder(park, 0.1, floorY + platH + railOffH/2, aRailZ, 0.035, 0.035, railOffH, white, 10);
+
+// [中央平台右側配置]：下斜台 (Hubba Ledge) + 下斜圓管扶手 (Down Rail) + 階梯
+// 右側下斜台 (Hubba)
+extrudeProfile(park, [
+  [0.4, 0],
+  [0.4, platH + 0.28],
+  [flatLen/2, platH + 0.28],
+  [flatLen/2 + rampLen*0.9, 0.18],
+  [flatLen/2 + rampLen*0.9, 0]
+], 0.68, 0, floorY, platZ + platW/2 - 0.34, birchSide);
+
+// 右側下斜圓管扶手 (Down Rail)
+const downRailZ = platZ + 1.05;
+createRailTube(park, [0.5, floorY + platH + railOffH, downRailZ], [flatLen/2, floorY + platH + railOffH, downRailZ]);
+createRailTube(park, [flatLen/2, floorY + platH + railOffH, downRailZ], [flatLen/2 + rampLen*0.95, floorY + 0.36, downRailZ]);
+cylinder(park, 0.6, floorY + platH + railOffH/2, downRailZ, 0.035, 0.035, railOffH, darkMetal, 10);
+cylinder(park, flatLen/2, floorY + platH + railOffH/2, downRailZ, 0.035, 0.035, railOffH, darkMetal, 10);
+cylinder(park, flatLen/2 + rampLen*0.85, floorY + 0.22, downRailZ, 0.035, 0.035, 0.38, darkMetal, 10);
+
+// 右側後方階梯 (5階)
+for(let s=0; s<5; s++){
+  const stepW = rampLen / 5;
+  const stepH = platH * (5 - s) / 5;
+  box(park, flatLen/2 + stepW*(s + 0.5), floorY + stepH/2, platZ - platW/2 + 0.45, stepW, stepH, 0.9, birchSide);
+}
+
+// ----------------------------------------------------------------------------
+// 3. 後方弧面與大斜坡區 (Rear Quarter Pipes & Center Bank — 照片後方牆面整排)
+// ----------------------------------------------------------------------------
+function buildQuarterPipe(parent, x, z, width, depth, height, deckDepth=0.85){
+  const shape = new THREE.Shape();
+  const r = Math.min(depth, height);
+  shape.moveTo(0, 0);
+  shape.lineTo(deckDepth + depth, 0);
+  // 弧面曲線 (從右下往上彎曲至平台)
+  shape.absarc(deckDepth + depth, r, r, -Math.PI/2, Math.PI, true);
+  shape.lineTo(deckDepth, height);
+  shape.lineTo(0, height);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false, curveSegments: 20 });
+  geo.rotateY(-Math.PI/2); // 讓弧面朝向 +Z (場地中央)
+  geo.translate(width/2, 0, 0);
+  const mesh = new THREE.Mesh(geo, birchRamp);
+  mesh.position.set(x, floorY, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+
+  // 頂部金屬 Coping 圓管
+  const coping = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, width, 14), darkMetal);
+  coping.rotation.z = Math.PI/2;
+  coping.position.set(x, floorY + height, z + deckDepth);
+  parent.add(coping);
+
+  // 底部銀色過渡鐵板
+  box(parent, x, floorY + 0.012, z + deckDepth + depth - 0.12, width, 0.02, 0.28, steelPlate);
+}
+
+const rearZ = -5.85;
+// 左側高弧面 (Tall Quarter Pipe)
+buildQuarterPipe(park, -5.6, rearZ, 4.6, 2.2, 2.05, 0.9);
+// 中間大斜坡 (Center Bank Ramp — 夾在兩座弧面之間)
+const midBankShape = new THREE.Shape();
+midBankShape.moveTo(0, 0);
+midBankShape.lineTo(3.1, 0);
+midBankShape.lineTo(0.9, 1.75);
+midBankShape.lineTo(0, 1.75);
+midBankShape.closePath();
+const midBankGeo = new THREE.ExtrudeGeometry(midBankShape, { depth: 3.4, bevelEnabled: false });
+midBankGeo.rotateY(-Math.PI/2);
+midBankGeo.translate(1.7, 0, 0);
+const midBank = new THREE.Mesh(midBankGeo, birchRamp);
+midBank.position.set(-1.5, floorY, rearZ);
+midBank.castShadow = true; midBank.receiveShadow = true;
+park.add(midBank);
+box(park, -1.5, floorY + 0.012, rearZ + 2.98, 3.4, 0.02, 0.28, steelPlate);
+
+// 右側弧面 (Right Quarter Pipe)
+buildQuarterPipe(park, 3.2, rearZ, 5.8, 2.0, 1.75, 0.9);
+
+// ----------------------------------------------------------------------------
+// 4. 前景與側邊道具 (第二張照片：大型助跑斜坡、Manual Pad 平衡台、初學圓管)
+// ----------------------------------------------------------------------------
+// 右前方大型助跑斜坡 (Large Foreground Bank / Roll-in，朝向場地中央)
+const fgBankShape = new THREE.Shape();
+fgBankShape.moveTo(0, 0);
+fgBankShape.lineTo(3.2, 0);
+fgBankShape.lineTo(3.2, 1.55);
+fgBankShape.lineTo(2.4, 1.55);
+fgBankShape.closePath();
+const fgBankGeo = new THREE.ExtrudeGeometry(fgBankShape, { depth: 4.4, bevelEnabled: false });
+fgBankGeo.rotateY(Math.PI/2); // 讓斜坡面朝向 -Z (中央平台)
+fgBankGeo.translate(-2.2, 0, 0);
+const fgBank = new THREE.Mesh(fgBankGeo, birchRamp);
+fgBank.position.set(5.4, floorY, 5.8);
+fgBank.castShadow = true; fgBank.receiveShadow = true;
+park.add(fgBank);
+box(park, 5.4, floorY + 0.012, 2.72, 4.4, 0.02, 0.28, steelPlate);
+
+// 中前方長型平衡台 (Manual Pad / Box)
+box(park, 1.4, floorY + 0.16, 3.4, 4.2, 0.32, 1.05, birchRamp);
+box(park, 1.4, floorY + 0.325, 3.4 + 0.51, 4.22, 0.03, 0.05, darkMetal);
+box(park, 1.4, floorY + 0.325, 3.4 - 0.51, 4.22, 0.03, 0.05, darkMetal);
+
+// 左側初學練習低矮圓管 (Practice Flat Bar，附藍色防撞泡棉)
+const practiceBarX = -6.6;
+const practiceBarZ = 2.6;
+cylinder(park, practiceBarX, floorY + 0.32, practiceBarZ, 0.04, 0.04, 3.2, steelPlate, 12);
+// 藍色泡棉套管
+cylinder(park, practiceBarX, floorY + 0.32, practiceBarZ + 0.3, 0.075, 0.075, 1.1, padBlue, 14);
+// 底座支撐腳
+box(park, practiceBarX, floorY + 0.16, practiceBarZ - 1.4, 0.45, 0.32, 0.06, white);
+box(park, practiceBarX, floorY + 0.16, practiceBarZ + 1.4, 0.45, 0.32, 0.06, white);
+
+// ----------------------------------------------------------------------------
+// 5. 場館背景牆與互動熱點 (GTANK Logo Wall & Hotspots)
+// ----------------------------------------------------------------------------
+box(park, -0.5, floorY + 2.35, -6.05, 15.6, 1.4, 0.22, birchSide);
+const logo=labelSprite('GTANK  /  SKATEPARK','#ffffff');
+logo.scale.set(5.4, 1.35, 1);
+logo.position.set(-1.5, floorY + 2.8, -5.8);
+park.add(logo);
+
+addHotspot(park, -5.8, floorY + 2.6, -3.8, '弧面與基礎滑行', 'RAMP ZONE', '練習 Pump 加速、Kickturn 轉向與 Drop-in 下板技巧。', 0x42d5ff);
+addHotspot(park, 0, floorY + 1.6, -0.2, '中央街式大平台', 'STREET FUNBOX', '結合雙向斜坡、A字扶手、下斜圓管與階梯的多功能核心區。', 0xffd36a);
+addHotspot(park, -6.6, floorY + 1.1, 2.6, '初學安全練習區', 'BEGINNER AREA', '配備防撞泡棉練習管與平緩地面，適合零基礎學員建立平衡感。', 0x7ef0a6);
+
+// ============================================================================
+// 周邊衛星島嶼 (HEART 政策島概念導覽據點)
+// ============================================================================
+function makeBuildingIsland(key,x,z,color,title,tag,desc,type){
+ const g=islandBase(world,x,z,3.25,2.75,.35,color);g.userData.worldKey=key;floaters.push({obj:g,base:0,amp:.14,speed:.9,phase:x*.3});
+ const b=new THREE.Group();g.add(b);
+ if(type==='trophy'){
+  box(b,0,.8,0,1.6,.35,1.2,mat(0xe7c66b));
+  const cup=new THREE.Mesh(new THREE.CylinderGeometry(.55,.35,.75,24,1,true),mat(0xffd34e,.28));cup.position.y=1.45;b.add(cup);
+  const h1=new THREE.Mesh(new THREE.TorusGeometry(.32,.09,10,24,Math.PI),mat(0xffd34e));h1.position.set(-.48,1.48,0);h1.rotation.z=Math.PI/2;b.add(h1);
+  const h2=h1.clone();h2.position.x=.48;h2.rotation.z=-Math.PI/2;b.add(h2);
+ } else if(type==='shop'){
+  box(b,0,1.1,0,2.1,1.8,1.8,mat(0xe7a15b));box(b,0,2.15,0,2.4,.25,2.1,mat(0x34434a));
+  box(b,0,1.0,.94,1.0,1.25,.08,mat(0x6ec6cf));
+  for(let i=0;i<3;i++)box(b,-.55+i*.55,.65,1.02,.38,.08,.08,mat(0xffdf8a));
+ } else if(type==='computer'){
+  box(b,0,.75,0,2.0,.25,1.4,mat(0x5b6875));
+  box(b,0,1.55,-.15,1.45,1.05,.12,mat(0x273a4a));
+  box(b,0,1.55,-.07,1.25,.82,.035,mat(0x39c5d8,.3));
+  box(b,0,.95,.25,.55,.12,.6,mat(0x303b40));
+ } else if(type==='school'){
+  box(b,0,1.0,0,2.1,1.5,1.8,mat(0xf1d9a5));
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(1.65,.9,4),mat(0x4c7777));roof.position.y=2.15;roof.rotation.y=Math.PI/4;b.add(roof);
+  box(b,0,.8,.94,.65,1.1,.08,mat(0x6b9da1));
+ } else {
+  cylinder(b,0,1.3,0,.8,.55,1.8,mat(0xd8e1df),24);
+  const top=new THREE.Mesh(new THREE.ConeGeometry(1.05,.8,24),mat(0xe4a35b));top.position.y=2.55;b.add(top);
+  box(b,0,2.0,0,1.5,.12,1.5,mat(0x43535a));
+ }
+ const spr=labelSprite(title,'#ffffff');spr.position.set(0,3.2,0);spr.scale.set(3.5,.88,1);g.add(spr);
+ addHotspot(g,0,2.5,0,title,tag,desc,0xffd36a);
+ return g;
+}
+makeBuildingIsland('events',-15,-10,0x85ad82,'比賽活動','EVENTS','查看 GTANK 比賽、活動、營隊與歷屆成果。','trophy');
+makeBuildingIsland('shop',14,-10,0x8fb58a,'GTANK SHOP','SHOP','瀏覽滑板、服飾與 GTANK 周邊商品。','shop');
+makeBuildingIsland('creative',-15,10,0x8eaf91,'創意教育','CREATIVE LAB','認識 OctoStudio、Minecraft Education 與遊戲創作課程。','computer');
+makeBuildingIsland('school',14,10,0x91b18a,'滑板學校','SKATE SCHOOL','查看課程內容、分級制度、收費與上課時間。','school');
+makeBuildingIsland('news',0,-17,0x91b18a,'最新消息','NEWS','掌握課程公告、活動消息與場地資訊。','tower');
+
+// 裝飾樹木與雲朵
+function tree(parent,x,z,s=1){const trunk=cylinder(parent,x,.95,z,.12,.16,1.1,mat(0x806449),8);const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.75*s,1),mat(0x4f946b));crown.position.set(x,1.85*s,z);crown.castShadow=true;parent.add(crown)}
+for(const [x,z] of [[-8.6,-5.6],[8.6,-5.6],[-8.6,5.6],[8.6,5.6]])tree(main,x,z,.75);
+for(let i=0;i<30;i++){const a=i/30*Math.PI*2;const cloud=new THREE.Mesh(new THREE.IcosahedronGeometry(.35+Math.random()*.45,1),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.62}));cloud.position.set(Math.cos(a)*30,8+Math.sin(i*2)*2,Math.sin(a)*25);scene.add(cloud);floaters.push({obj:cloud,base:cloud.position.y,amp:.18,speed:.3,phase:i})}
+
+// 點擊互動與相機平滑轉場
+const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
+const info=document.querySelector('#info');
+const data={
+ main:['GTANK SKATEPARK','走進 GTANK 的真實滑板場。探索 Street 障礙、斜坡、滑軌與不同程度的練習空間。'],
+ school:['滑板課程與分級','從初學者到進階技巧，查看課程內容、分級制度、收費與上課時間。'],
+ events:['比賽與活動','掌握近期賽事、營隊、活動報名與歷屆比賽成果。'],
+ shop:['GTANK 商品商店','瀏覽滑板裝備、服飾與 GTANK 品牌周邊。'],
+ creative:['爆仔創意／程式教育','探索 OctoStudio、Minecraft Education 與兒童遊戲創作課程。'],
+ news:['最新消息','查看課程公告、場地通知與 GTANK 最新動態。']
+};
+function showInfo(key,tag='GTANK WORLD',customTitle=null,customDesc=null){
+  const d=data[key]||['探索 GTANK','更多資訊即將開放。'];
+  document.querySelector('#infoTag').textContent=tag;
+  document.querySelector('#infoTitle').textContent=customTitle||d[0];
+  document.querySelector('#infoText').textContent=customDesc||d[1];
+  info.classList.add('show');
+}
+function focus(key){
+ const poses={main:[16,17,22,0,1,0],school:[19,13,19,14,0,10],events:[-12,10,15,-15,0,-10],shop:[25,12,13,14,0,-10],creative:[-23,12,14,-15,0,10],news:[0,13,-28,0,0,-17]};
+ const p=poses[key];if(!p)return;
+ const startP=camera.position.clone(),endP=new THREE.Vector3(p[0],p[1],p[2]),startT=controls.target.clone(),endT=new THREE.Vector3(p[3],p[4],p[5]);
+ let t=0;function step(){t=Math.min(1,t+.025);const e=1-Math.pow(1-t,3);camera.position.lerpVectors(startP,endP,e);controls.target.lerpVectors(startT,endT,e);if(t<1)requestAnimationFrame(step)}step();
+ showInfo(key,key==='main'?'MAIN ISLAND':'GTANK DESTINATION');
+}
+renderer.domElement.addEventListener('pointerdown',e=>{
+  mouse.x=e.clientX/innerWidth*2-1;
+  mouse.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(pickables,true);
+  if(hits.length){
+    let o=hits[0].object;
+    while(o&&!o.userData.title)o=o.parent;
+    if(o?.userData.title){
+      const match=Object.entries(data).find(([k,v])=>v[0]===o.userData.title);
+      if(match)focus(match[0]);
+      else showInfo('main',o.userData.tag,o.userData.title,o.userData.desc);
+    }
+  }
+});
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>focus(b.dataset.target)));
+document.querySelector('#close').onclick=()=>info.classList.remove('show');
+document.querySelector('#infoAction').onclick=()=>{info.classList.remove('show');};
+const clock=new THREE.Clock();
+function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime();for(const f of floaters){f.obj.position.y=f.base+Math.sin(t*f.speed+f.phase)*f.amp}controls.update();renderer.render(scene,camera)}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+setTimeout(()=>document.querySelector('#loading').classList.add('hide'),900);
+</script>
+</body>
+</html>
