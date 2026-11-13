@@ -5,31 +5,48 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GTANK 3D World — Prototype</title>
 <style>
-  :root { --ink:#17232b; --glass:rgba(12,22,29,.78); --line:rgba(255,255,255,.2); --gold:#ffd36a; }
+  :root { 
+    --ink:#17232b; 
+    --sub-ink:#3a525e;
+    --glass:rgba(255,255,255,.72); 
+    --line:rgba(255,255,255,.85); 
+    --gold:#ffd36a; 
+    --accent:#c87d12;
+  }
   *{box-sizing:border-box}
-  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8dcbd4;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#fff}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8dcbd4;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:var(--ink)}
   #scene{position:fixed;inset:0}
   canvas{display:block}
   .topbar{position:fixed;z-index:5;left:22px;right:22px;top:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;pointer-events:none}
-  .brand{pointer-events:auto;font-weight:900;letter-spacing:.08em;font-size:25px;line-height:1;text-shadow:0 2px 12px #142b35}
-  .brand small{display:block;font-size:10px;letter-spacing:.28em;margin-top:5px;color:#ffe29b}
-  nav{pointer-events:auto;display:flex;gap:7px;padding:7px;border:1px solid var(--line);border-radius:16px;background:var(--glass);backdrop-filter:blur(12px)}
-  nav button,.control{border:0;color:#fff;background:transparent;padding:10px 13px;border-radius:10px;font-weight:700;cursor:pointer}
-  nav button:hover,.control:hover{background:rgba(255,255,255,.15)}
-  .hint{position:fixed;left:22px;bottom:20px;z-index:4;padding:12px 15px;background:var(--glass);border:1px solid var(--line);border-radius:13px;font-size:12px;line-height:1.7;backdrop-filter:blur(10px)}
-  .hint b{color:var(--gold)}
-  .side{position:fixed;right:22px;top:105px;z-index:4;width:230px;padding:16px;background:var(--glass);border:1px solid var(--line);border-radius:17px;backdrop-filter:blur(12px)}
-  .side h3{margin:0 0 9px;font-size:14px;letter-spacing:.12em;color:var(--gold)}
-  .side p{font-size:12px;line-height:1.65;color:#d9e5e8;margin:0}
-  .side .status{display:inline-block;margin-top:12px;padding:5px 9px;border-radius:20px;background:rgba(255,211,106,.16);color:#ffe29b;font-size:11px}
-  .info{position:fixed;z-index:6;left:50%;bottom:22px;transform:translate(-50%,20px);width:min(460px,calc(100% - 32px));padding:17px 19px;background:rgba(10,20,27,.9);border:1px solid rgba(255,255,255,.25);border-radius:18px;backdrop-filter:blur(15px);opacity:0;pointer-events:none;transition:.3s}
+  .brand{pointer-events:auto;font-weight:900;letter-spacing:.08em;font-size:25px;line-height:1;color:#fff;text-shadow:0 2px 10px rgba(20,43,53,.35)}
+  .brand small{display:block;font-size:10px;letter-spacing:.28em;margin-top:5px;color:#fff5d6}
+  
+  /* 頂部功能列：半透明淺色毛玻璃 */
+  nav{pointer-events:auto;display:flex;gap:7px;padding:7px;border:1px solid var(--line);border-radius:16px;background:var(--glass);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(18,45,56,.12)}
+  nav button,.control{border:0;color:var(--ink);background:transparent;padding:10px 13px;border-radius:10px;font-weight:700;cursor:pointer;transition:.2s}
+  nav button:hover,.control:hover{background:rgba(255,255,255,.75)}
+  
+  /* 左下角「操作方式」看板：半透明淺色毛玻璃 */
+  .hint{position:fixed;left:22px;bottom:20px;z-index:4;padding:12px 16px;background:var(--glass);border:1px solid var(--line);border-radius:14px;font-size:12px;line-height:1.7;color:var(--sub-ink);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(18,45,56,.12)}
+  .hint b{color:var(--ink);font-weight:800}
+  
+  .side{position:fixed;right:22px;top:105px;z-index:4;width:230px;padding:16px;background:var(--glass);border:1px solid var(--line);border-radius:17px;backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(18,45,56,.12)}
+  .side h3{margin:0 0 9px;font-size:14px;letter-spacing:.12em;color:var(--accent)}
+  .side p{font-size:12px;line-height:1.65;color:var(--sub-ink);margin:0}
+  .side .status{display:inline-block;margin-top:12px;padding:5px 9px;border-radius:20px;background:rgba(255,211,106,.35);color:var(--ink);font-size:11px;font-weight:700}
+  
+  /* 底部互動資訊彈窗：半透明淺色卡片 */
+  .info{position:fixed;z-index:6;left:50%;bottom:22px;transform:translate(-50%,20px);width:min(460px,calc(100% - 32px));padding:18px 20px;background:rgba(255,255,255,.88);border:1px solid #fff;border-radius:18px;backdrop-filter:blur(16px);box-shadow:0 12px 32px rgba(18,45,56,.18);opacity:0;pointer-events:none;transition:.3s}
   .info.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-  .info .eyebrow{font-size:10px;letter-spacing:.2em;color:var(--gold);font-weight:800}
-  .info h2{margin:5px 0 5px;font-size:21px}
-  .info p{margin:0;color:#d9e5e8;font-size:13px;line-height:1.6}
-  .info button{margin-top:12px;border:0;background:var(--gold);color:#17232b;padding:8px 13px;border-radius:9px;font-weight:800;cursor:pointer}
-  .close{position:absolute;right:13px;top:12px;background:transparent!important;color:#fff!important;padding:4px 8px!important}
-  .footer{position:fixed;right:22px;bottom:20px;z-index:4;color:rgba(255,255,255,.8);font-size:10px;letter-spacing:.12em;text-shadow:0 1px 4px #234}
+  .info .eyebrow{font-size:10px;letter-spacing:.2em;color:var(--accent);font-weight:800}
+  .info h2{margin:5px 0 6px;font-size:21px;color:var(--ink)}
+  .info p{margin:0;color:var(--sub-ink);font-size:13px;line-height:1.6}
+  .info button{margin-top:13px;border:0;background:var(--gold);color:var(--ink);padding:8px 14px;border-radius:9px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(200,125,18,.2)}
+  .info button:hover{filter:brightness(1.03)}
+  .close{position:absolute;right:13px;top:12px;background:rgba(23,35,43,.06)!important;color:var(--ink)!important;padding:4px 9px!important;box-shadow:none!important}
+  .close:hover{background:rgba(23,35,43,.14)!important}
+  
+  .footer{position:fixed;right:22px;bottom:20px;z-index:4;color:rgba(255,255,255,.9);font-size:10px;letter-spacing:.12em;text-shadow:0 1px 4px rgba(20,43,53,.35)}
   #loading{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:#18343d;color:#fff;transition:opacity .5s}
   #loading.hide{opacity:0;pointer-events:none}
   #loading div{text-align:center;letter-spacing:.18em;font-weight:800}
@@ -48,14 +65,18 @@
     <button data-target="events">🏆 比賽</button>
     <button data-target="shop">🛍 商品</button>
     <button data-target="creative">💻 創意教育</button>
+    <!--
     <button id="exportGlb" style="background:rgba(255,211,106,.22);color:#ffd36a;">📦 匯出 .glb</button>
+    -->
   </nav>
 </header>
+<!--
 <aside class="side">
   <h3>EXPLORE THE WORLD</h3>
   <p>以中央 GTANK 滑板場為核心，探索周圍的服務據點。拖曳旋轉、滾輪縮放，點擊島嶼查看介紹。</p>
   <span class="status">● 3D INTERACTIVE PROTOTYPE</span>
 </aside>
+-->
 <div class="hint"><b>操作方式</b><br>滑鼠拖曳：旋轉世界 ｜ 滾輪：縮放<br>點擊場景中的島嶼：查看內容</div>
 <div class="footer">GTANK DIGITAL EXPERIENCE / CONCEPT 01</div>
 <section class="info" id="info">
@@ -228,7 +249,10 @@ function labelSprite(text,color='#ffffff'){
 function addHotspot(group,x,y,z,title,tag,desc,color=0xffd36a){
  const orb=new THREE.Mesh(new THREE.SphereGeometry(.28,20,20),new THREE.MeshBasicMaterial({color}));orb.position.set(x,y,z);group.add(orb);
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.045,8,40),new THREE.MeshBasicMaterial({color}));ring.rotation.x=Math.PI/2;ring.position.set(x,y-.16,z);group.add(ring);
- const spr=labelSprite(title,'#'+new THREE.Color(color).getHexString());spr.position.set(x,y+1.05,z);group.add(spr);
+ const spr=labelSprite(title,'#'+new THREE.Color(color).getHexString());
+ spr.position.set(x,y+0.95,z);
+ spr.scale.set(3.6,0.9,1); // 讓所有熱點看板大小統一俐落
+ group.add(spr);
  orb.userData={title,tag,desc};pickables.push(orb);pickables.push(spr);
  return orb;
 }
@@ -565,13 +589,191 @@ function createCustomLogoSprite(imgUrl) {
 }
 
 const logo = createCustomLogoSprite('./gtank_logo.png');
-logo.position.set(-2.5, floorY + 4.8, -6.85);
+logo.position.set(-2.5, floorY + 3.8, -6.85);
 park.add(logo);
 
-addHotspot(park, 6.8, floorY + 2.5, -1.8, '弧面與大斜坡區', 'RAMP ZONE', '練習 Pump 加速、Kickturn 轉向與 Drop-in 下板技巧。', 0x42d5ff);
-addHotspot(park, -2.5, floorY + 1.65, -4.25, '內側高台與雙扶手區', 'BACK LINE PLAZA', '結合左側弧面斜坡、長助跑平台與右側階梯/Hubba/雙扶手的經典路線。', 0xff9f43);
-addHotspot(park, -0.2, floorY + 1.65, -1.0, '中央多段式街式大平台', 'STREET PLAZA', '結合階梯、高台連續斜管、Hubba 斜台與 A字扶手的核心練習區。', 0xffd36a);
+//addHotspot(park, 6.8, floorY + 2.5, -1.8, '弧面與大斜坡區', 'RAMP ZONE', '練習 Pump 加速、Kickturn 轉向與 Drop-in 下板技巧。', 0x42d5ff);
+//addHotspot(park, -2.5, floorY + 1.65, -4.25, '內側高台與雙扶手區', 'BACK LINE PLAZA', '結合左側弧面斜坡、長助跑平台與右側階梯/Hubba/雙扶手的經典路線。', 0xff9f43);
+//addHotspot(park, -0.2, floorY + 1.65, -1.0, '中央多段式街式大平台', 'STREET PLAZA', '結合階梯、高台連續斜管、Hubba 斜台與 A字扶手的核心練習區。', 0xffd36a);
 //addHotspot(park, -6.8, floorY + 1.1, 3.2, '練習區', 'BEGINNER AREA', '配備防撞泡棉練習管與平緩地面，適合零基礎學員建立平衡感。', 0x7ef0a6);
+
+// ============================================================================
+// GTANK 滑板小人自動巡航 ＋ Ollie / Shuvit 招式模組
+// ============================================================================
+function createGtSkater() {
+  const skaterRoot = new THREE.Group();
+
+  // 1. 滑板群組 (獨立群組，方便在空中做 Shuvit 旋轉)
+  const boardGroup = new THREE.Group();
+  skaterRoot.add(boardGroup);
+
+  // 板身 (楓木板底 + 黑色砂紙面 + 翹起的板頭板尾)
+  const deckMat = mat(0xd99b52, 0.5);
+  const gripMat = mat(0x222629, 0.9);
+  box(boardGroup, 0, 0.08, 0, 0.52, 0.025, 0.16, deckMat);
+  box(boardGroup, 0, 0.095, 0, 0.50, 0.008, 0.15, gripMat);
+  // 翹起的 Nose 與 Tail
+  const nose = box(boardGroup, 0.30, 0.105, 0, 0.12, 0.022, 0.15, deckMat);
+  nose.rotation.z = 0.32;
+  const tail = box(boardGroup, -0.30, 0.105, 0, 0.12, 0.022, 0.15, deckMat);
+  tail.rotation.z = -0.32;
+
+  // 輪架 (Trucks) 與 4顆白色滑板輪
+  for (const tx of [-0.18, 0.18]) {
+    box(boardGroup, tx, 0.055, 0, 0.04, 0.03, 0.14, steelPlate);
+    for (const tz of [-0.085, 0.085]) {
+      const wheel = cylinder(boardGroup, tx, 0.032, tz, 0.032, 0.032, 0.024, white, 12);
+      wheel.rotation.x = Math.PI / 2;
+    }
+  }
+
+  // 2. 小朋友人物群組 (側身站姿，面朝 +Z 前方)
+  const kidGroup = new THREE.Group();
+  kidGroup.position.y = 0.10;
+  skaterRoot.add(kidGroup);
+
+  const skinMat = mat(0xf5c6a5, 0.65);
+  const shirtMat = mat(0x22282d, 0.8);     // 黑色 GTANK 練習短袖
+  const shortsMat = mat(0x8c969e, 0.8);    // 灰色短褲
+  const helmetMat = mat(0x2980b9, 0.35);   // 藍色安全帽
+  const padMat = mat(0x1e2226, 0.7);       // 黑色護膝/護肘
+
+  // 雙腳與膝蓋護具 (前後開立踩在板面上)
+  for (const lx of [-0.14, 0.14]) {
+    cylinder(kidGroup, lx, 0.16, 0, 0.042, 0.038, 0.28, skinMat, 10);
+    // 護膝
+    box(kidGroup, lx, 0.17, 0.02, 0.085, 0.08, 0.085, padMat);
+    // 滑板鞋
+    box(kidGroup, lx, 0.025, 0.015, 0.09, 0.05, 0.12, white);
+  }
+
+  // 短褲與上身軀幹
+  box(kidGroup, 0, 0.34, 0, 0.24, 0.14, 0.14, shortsMat);
+  box(kidGroup, 0, 0.52, 0, 0.26, 0.24, 0.15, shirtMat);
+
+  // 頭部與藍色安全帽
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 16, 16), skinMat);
+  head.position.set(0, 0.75, 0.01);
+  head.castShadow = true;
+  kidGroup.add(head);
+
+  const helmet = new THREE.Mesh(
+    new THREE.SphereGeometry(0.128, 16, 14, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    helmetMat
+  );
+  helmet.position.set(0, 0.76, 0);
+  helmet.castShadow = true;
+  kidGroup.add(helmet);
+
+  // 雙手張開保持平衡 (可隨招式動態上下擺動)
+  const leftArm = new THREE.Group();
+  leftArm.position.set(-0.15, 0.60, 0);
+  const lArmMesh = box(leftArm, -0.11, -0.02, 0, 0.22, 0.055, 0.055, skinMat);
+  lArmMesh.rotation.z = 0.35;
+  box(leftArm, -0.10, -0.02, 0, 0.07, 0.065, 0.065, padMat); // 護肘
+  kidGroup.add(leftArm);
+
+  const rightArm = new THREE.Group();
+  rightArm.position.set(0.15, 0.60, 0);
+  const rArmMesh = box(rightArm, 0.11, -0.02, 0, 0.22, 0.055, 0.055, skinMat);
+  rArmMesh.rotation.z = -0.35;
+  box(rightArm, 0.10, -0.02, 0, 0.07, 0.065, 0.065, padMat); // 護肘
+  kidGroup.add(rightArm);
+
+  return { root: skaterRoot, board: boardGroup, kid: kidGroup, leftArm, rightArm };
+}
+
+const skater = createGtSkater();
+park.add(skater.root);
+
+// 定義巡航路線關鍵座標點 (沿梯形大平台外側淨空大道 z = 1.65 往返於右側大斜坡與左側最高弧面之間)
+const skateLaneZ = 1.65;
+const routePoints = [
+  // 1. 去程 (由右往左)：從右側中間大斜坡起跑 -> 跨越梯形大平台 -> 衝上左側最高弧面
+  new THREE.Vector3(7.6,  floorY + 1.35, skateLaneZ - 0.8), // P0: 右側大斜坡上方起點
+  new THREE.Vector3(5.6,  floorY,        skateLaneZ - 0.3), // P1: 右側大斜坡底部落地
+  new THREE.Vector3(3.6,  floorY,        skateLaneZ),       // P2: 梯形右斜坡底部
+  new THREE.Vector3(1.9,  floorY + trapH, skateLaneZ),      // P3: 梯形右斜坡頂部 (準備起跳點)
+  new THREE.Vector3(1.2,  floorY + trapH, skateLaneZ),      // P4: 梯形平台中央 (空中做 Pop Shuvit)
+  new THREE.Vector3(0.5,  floorY + trapH, skateLaneZ),      // P5: 梯形左斜坡頂部 (落地點)
+  new THREE.Vector3(-1.2, floorY,        skateLaneZ),       // P6: 梯形左斜坡底部
+  new THREE.Vector3(-5.9, floorY,        skateLaneZ),       // P7: 左側最高弧面底部入口
+  new THREE.Vector3(-7.7, floorY + 1.15, skateLaneZ),       // P8: 衝上左側最高弧面半腰 (準備 Kickturn 折返)
+
+  // 2. 回程 (由左往右)：弧面轉向俯衝 -> 再次飛躍梯形大平台 -> 回到右側大斜坡轉向
+  new THREE.Vector3(-5.9, floorY,        skateLaneZ + 0.35),// P9: 俯衝離開弧面
+  new THREE.Vector3(-1.2, floorY,        skateLaneZ + 0.35),// P10: 梯形左斜坡底部
+  new THREE.Vector3(0.5,  floorY + trapH, skateLaneZ + 0.35),// P11: 梯形左斜坡頂部 (回程起跳點)
+  new THREE.Vector3(1.2,  floorY + trapH, skateLaneZ + 0.35),// P12: 梯形平台中央 (空中做高飛 Ollie)
+  new THREE.Vector3(1.9,  floorY + trapH, skateLaneZ + 0.35),// P13: 梯形右斜坡頂部 (落地點)
+  new THREE.Vector3(3.6,  floorY,        skateLaneZ + 0.35),// P14: 梯形右斜坡底部
+  new THREE.Vector3(5.6,  floorY,        skateLaneZ - 0.2), // P15: 準備衝上右側大斜坡
+  new THREE.Vector3(7.6,  floorY + 1.35, skateLaneZ - 0.8)  // P16: 回到起點完成閉合循環
+];
+
+const skateCurve = new THREE.CatmullRomCurve3(routePoints, true, 'catmullrom', 0.25);
+
+function updateSkaterAnimation(elapsedTime) {
+  const cycleDuration = 11.0;
+  const u = (elapsedTime % cycleDuration) / cycleDuration;
+
+  const pos = skateCurve.getPointAt(u);
+  const tangent = skateCurve.getTangentAt(u).normalize();
+
+  // 計算水平前進方向與斜坡仰角
+  const heading = Math.atan2(-tangent.z, tangent.x);
+  const horizLen = Math.hypot(tangent.x, tangent.z);
+  const pitch = Math.atan2(tangent.y, horizLen);
+
+  // --- 招式觸發判定 (改用實際 X 座標位置觸發，精準對應斜坡頂端！) ---
+  let jumpOffsetY = 0;
+  let boardSpinY = 0;
+  let boardFlipZ = 0;
+  let crouchOffset = 0;
+  let armSwing = Math.sin(elapsedTime * 6) * 0.12;
+
+  const isGoingLeft = tangent.x < -0.1;  // 去程：從右往左滑
+  const isGoingRight = tangent.x > 0.1;  // 回程：從左往右滑
+
+  // 招式 1：去程衝上右側斜坡、快到平台頂端 (x: 2.15 -> 0.40) -> Pop Shuvit 360° 豚跳
+  if (isGoingLeft && pos.x <= 2.15 && pos.x >= 0.40) {
+    const p = (2.15 - pos.x) / (2.15 - 0.40); // 0 -> 1 跳躍進度
+    jumpOffsetY = Math.sin(p * Math.PI) * 0.58;
+    boardSpinY = p * Math.PI * 2;
+    boardFlipZ = Math.sin(p * Math.PI) * 0.28;
+    crouchOffset = -Math.sin(p * Math.PI) * 0.06;
+    armSwing = Math.sin(p * Math.PI) * 0.55;
+  }
+  // 招式 2：回程衝上左側斜坡、快到平台頂端 (x: 0.25 -> 2.00) -> 高飛 Ollie 豚跳！
+  else if (isGoingRight && pos.x >= 0.25 && pos.x <= 2.00) {
+    const p = (pos.x - 0.25) / (2.00 - 0.25); // 0 -> 1 跳躍進度
+    jumpOffsetY = Math.sin(p * Math.PI) * 0.68;
+    boardFlipZ = Math.sin(p * Math.PI * 2) * 0.32;
+    crouchOffset = -Math.sin(p * Math.PI) * 0.08;
+    armSwing = Math.sin(p * Math.PI) * 0.65;
+  }
+  // 衝上斜坡中段準備起跳前、以及落地後的膝蓋微蹲蓄力/緩衝
+  else if (
+    (isGoingLeft && ((pos.x > 2.15 && pos.x < 2.75) || (pos.x < 0.40 && pos.x > -0.20))) ||
+    (isGoingRight && ((pos.x > -0.45 && pos.x < 0.25) || (pos.x > 2.00 && pos.x < 2.60)))
+  ) {
+    crouchOffset = -0.05;
+  }
+
+  // 套用位置與朝向
+  skater.root.position.set(pos.x, pos.y + jumpOffsetY, pos.z);
+  skater.root.rotation.set(0, 0, 0);
+  skater.root.rotateY(heading);
+  const activePitch = jumpOffsetY > 0.05 ? pitch * (1 - jumpOffsetY) : pitch;
+  skater.root.rotateZ(activePitch);
+
+  // 套用招式細節動畫
+  skater.board.rotation.y = boardSpinY;
+  skater.board.rotation.z = boardFlipZ;
+  skater.kid.position.y = 0.10 + crouchOffset;
+  skater.leftArm.rotation.z = armSwing;
+  skater.rightArm.rotation.z = -armSwing;
+}
 
 // ============================================================================
 // 周邊衛星島嶼
@@ -602,7 +804,7 @@ function makeBuildingIsland(key,x,z,color,title,tag,desc,type){
   const top=new THREE.Mesh(new THREE.ConeGeometry(1.05,.8,24),mat(0xe4a35b));top.position.y=2.55;b.add(top);
   box(b,0,2.0,0,1.5,.12,1.5,mat(0x43535a));
  }
- const spr=labelSprite(title,'#ffffff');spr.position.set(0,3.2,0);spr.scale.set(3.5,.88,1);g.add(spr);
+ //const spr=labelSprite(title,'#ffffff');spr.position.set(0,3.2,0);spr.scale.set(3.5,.88,1);g.add(spr);
  addHotspot(g,0,2.5,0,title,tag,desc,0xffd36a);
  return g;
 }
@@ -660,7 +862,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 document.querySelectorAll('nav button[data-target]').forEach(b=>b.addEventListener('click',()=>focus(b.dataset.target)));
 document.querySelector('#close').onclick=()=>info.classList.remove('show');
 document.querySelector('#infoAction').onclick=()=>{info.classList.remove('show');};
-
+/*
 // 匯出 .glb 模型功能
 document.querySelector('#exportGlb').addEventListener('click', () => {
   const exporter = new GLTFExporter();
@@ -682,9 +884,19 @@ document.querySelector('#exportGlb').addEventListener('click', () => {
     { binary: true }
   );
 });
+*/
 
 const clock=new THREE.Clock();
-function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime();for(const f of floaters){f.obj.position.y=f.base+Math.sin(t*f.speed+f.phase)*f.amp}controls.update();renderer.render(scene,camera)}
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  for(const f of floaters){
+    f.obj.position.y=f.base+Math.sin(t*f.speed+f.phase)*f.amp;
+  }
+  updateSkaterAnimation(t); // <--- 加入這一行，啟動 GTANK 小滑手巡航與招式！
+  controls.update();
+  renderer.render(scene,camera)
+}
 animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 setTimeout(()=>document.querySelector('#loading').classList.add('hide'),900);
